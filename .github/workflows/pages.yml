@@ -32,7 +32,8 @@ jobs:
           now=$(git -C src rev-parse HEAD)
           live=$(curl -fsS https://explorer.quinvium.com/source-commit.txt || true)
           echo "commit=$now" >> "$GITHUB_OUTPUT"
-          if [ "$now" = "$live" ] && [ "${{ github.event_name }}" = schedule ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; fi
+          # Once an hour the site is published even without a new commit, to refresh nodes.json.
+          if [ "$now" = "$live" ] && [ "${{ github.event_name }}" = schedule ] && [ "$(date -u +%M)" -ge 30 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; fi
       - name: Site files
         if: steps.check.outputs.skip != '1'
         run: |
@@ -42,6 +43,8 @@ jobs:
           cp _site/index.html _site/404.html
           echo explorer.quinvium.com > _site/CNAME
           echo "${{ steps.check.outputs.commit }}" > _site/source-commit.txt
+          # Community nodes for an outage of our servers; refreshed at every deploy, and at least once an hour.
+          node src/ops/pages/nodes.mjs --chain 52401 --genesis 0x49c889ad9d4f44869cf7f97a6e079a50dbf13974263b1afedec3b774ebeeac39 --rpc https://rpc.quinvium.com --previous https://explorer.quinvium.com/nodes.json --previous https://quinvium.com/nodes.json --out _site/nodes.json
 
       - if: steps.check.outputs.skip != '1'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
